@@ -49,6 +49,12 @@ textarea.inp{resize:vertical;min-height:80px}
 .loading-screen { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 3000; color: white; flex-direction: column; gap: 15px; backdrop-filter: blur(5px); font-weight:700;}
 .fl-filter-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;user-select:none;border:1px solid var(--border);background:var(--inp);color:var(--dim);transition:all .2s;white-space:nowrap}
 .fl-filter-chip.active{border-color:var(--amber);background:#f59e0b18;color:var(--amber)}
+.fuel-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700}
+.fuel-badge.electric{background:#a855f720;color:#c084fc;border:1px solid #a855f730}
+.fuel-badge.diesel{background:#64748b20;color:#94a3b8;border:1px solid #64748b30}
+.fuel-badge.gasoline{background:#f59e0b20;color:#fbbf24;border:1px solid #f59e0b30}
+.fuel-badge.lpg{background:#f9731620;color:#fb923c;border:1px solid #f9731630}
+.fuel-badge.hybrid{background:#22c55e20;color:#4ade80;border:1px solid #22c55e30}
 @media(max-width:600px){.grid-2{grid-template-columns:1fr}.g-auto{grid-template-columns:1fr}}
 </style>
 </head>
@@ -63,31 +69,69 @@ const {useState,useEffect,useCallback,useMemo,useRef,memo}=React;
 
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby29FSo8URGOLlHAkNUevL1SCwXtzR83Tttal0fiYluGfiNy8qYpEtu5CFokt1kRu0O/exec";
 
-/* DEFAULT LİSTELER */
+/* DEFAULT LİSTELER - STANDART (Dizel/Benzinli/LPG/Hibrit) */
 const DEF_M250=["Motor yağı seviyesini kontrol et", "Yağ filtresi", "Hava filtresi", "Hidrolik yağ seviyesi", "Fren hidroliği", "Lastik basınçları", "Zincir gerginliği", "Çatal aşınması", "Gres yağlama", "Hidrolik hortumlar", "Sızıntı kontrolü", "Egzoz sistemi", "Işıklar ve Korna", "Emniyet kemeri", "El freni"];
 const DEF_M500=["Motor yağı değişimi", "Yağ filtresi değişimi", "Hava filtresi değişimi", "Yakıt filtresi", "Hidrolik yağ değişimi", "Hidrolik filtre", "Diferansiyel yağı", "Fren balataları", "Asansör rulmanları", "Motor takozları", "Alternatör kayışı", "Soğutma sistemi", "Bujiler/Enjektörler", "Tüm contalar"];
 const DEF_M2000=["Motor komple bakım", "Şanzıman yağı değişimi", "Şanzıman filtresi", "Diferansiyel komple bakım", "Hidrolik sistem komple bakım", "Hidrolik pompa kontrolü", "Hidrolik silindir contaları", "Direksiyon sistemi komple", "Fren sistemi komple revizyon", "Ön aks/Arka aks kontrolü", "Asansör zinciri değişimi", "Çatal kontrol/değişim", "Tüm rulmanlar kontrol", "Elektrik sistemi komple kontrol", "Marş motoru/Alternatör kontrol", "Radyatör temizlik/kontrol", "Egzoz sistemi komple", "Tüm hortum ve kelepçeler", "Kabin/Koruma kafesi kontrol", "Genel test ve kalibrasyon"];
 const DEF_WCHK=["Çalışma saati", "Motor yağı", "Soğutma suyu", "Hidrolik yağ", "Fren testi", "Direksiyon testi", "Çatallar", "Lastikler", "Aydınlatma", "Korna", "Emniyet kemeri", "Sızıntı kontrolü", "Genel temizlik"];
+
+/* DEFAULT LİSTELER - ELEKTRİKLİ */
+const DEF_EM250=["Batarya su seviyesi kontrolü", "Batarya kutup başları temizliği", "Şarj sistemi kontrolü", "Hidrolik yağ seviyesi", "Fren hidroliği", "Lastik basınçları", "Zincir gerginliği", "Çatal aşınması", "Gres yağlama", "Hidrolik hortumlar", "Sızıntı kontrolü", "Işıklar ve Korna", "Emniyet kemeri", "El freni"];
+const DEF_EM500=["Batarya yoğunluk testi", "Batarya bağlantı kontrolü", "Şarj cihazı kontrolü", "Hidrolik yağ değişimi", "Hidrolik filtre", "Fren balataları", "Asansör rulmanları", "Motor fırçaları kontrolü", "Kontaktör kontrolü", "Kablolama kontrolü", "Tüm contalar"];
+const DEF_EM2000=["Batarya kapasite testi", "Batarya komple kontrol", "Elektrik motoru komple bakım", "Motor fırçaları değişimi", "Kontrol ünitesi (controller) bakım", "Hidrolik sistem komple bakım", "Hidrolik pompa kontrolü", "Hidrolik silindir contaları", "Direksiyon sistemi komple", "Fren sistemi komple revizyon", "Ön aks/Arka aks kontrolü", "Asansör zinciri değişimi", "Çatal kontrol/değişim", "Tüm rulmanlar kontrol", "Tüm kablolar ve konnektörler", "Tüm hortum ve kelepçeler", "Kabin/Koruma kafesi kontrol", "Genel test ve kalibrasyon"];
+const DEF_EWCHK=["Çalışma saati", "Batarya su seviyesi", "Batarya şarj durumu", "Hidrolik yağ", "Fren testi", "Direksiyon testi", "Çatallar", "Lastikler", "Aydınlatma", "Korna", "Emniyet kemeri", "Sızıntı kontrolü", "Genel temizlik"];
 
 const FUELS=[{v:"diesel",l:"Dizel",e:"⛽"},{v:"gasoline",l:"Benzinli",e:"⛽"},{v:"lpg",l:"LPG",e:"🔥"},{v:"electric",l:"Elektrikli",e:"⚡"},{v:"hybrid",l:"Hibrit",e:"🔋"}];
 const PRIO={low:{l:"Düşük",c:"#60a5fa"},normal:{l:"Normal",c:"#fbbf24"},high:{l:"Yüksek",c:"#f97316"},critical:{l:"Kritik",c:"#ef4444"}};
 
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).substr(2,5);
 const fd=d=>d?new Date(d).toLocaleDateString("tr-TR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):"—";
-const gf=t=>FUELS.find(f=>f.v===t)||{v:"",l:"",e:""};
+const gf=t=>FUELS.find(f=>f.v===t)||{v:"diesel",l:"Dizel",e:"⛽"};
+const isElectric = (fuel) => fuel === "electric";
 
 /* LİSTE YÖNETİMİ (LocalStorage) */
 const getSavedLists = () => {
     const s = localStorage.getItem("opus_lists");
     if(s) {
         const parsed = JSON.parse(s);
+        // Geriye uyumluluk: eski kayıtlarda elektrikli listeler yoksa ekle
         if(!parsed.m2000) parsed.m2000 = DEF_M2000;
+        if(!parsed.em250) parsed.em250 = DEF_EM250;
+        if(!parsed.em500) parsed.em500 = DEF_EM500;
+        if(!parsed.em2000) parsed.em2000 = DEF_EM2000;
+        if(!parsed.eweekly) parsed.eweekly = DEF_EWCHK;
         return parsed;
     }
-    return { m250: DEF_M250, m500: DEF_M500, m2000: DEF_M2000, weekly: DEF_WCHK };
+    return { m250: DEF_M250, m500: DEF_M500, m2000: DEF_M2000, weekly: DEF_WCHK, em250: DEF_EM250, em500: DEF_EM500, em2000: DEF_EM2000, eweekly: DEF_EWCHK };
+};
+
+/* Yakıt tipi localStorage yönetimi */
+const getFuelTypes = () => JSON.parse(localStorage.getItem("opus_fuel_types") || "{}");
+const saveFuelType = (flId, fuelType) => {
+    const ft = getFuelTypes();
+    ft[flId] = fuelType;
+    localStorage.setItem("opus_fuel_types", JSON.stringify(ft));
+};
+const getFuelType = (flId) => getFuelTypes()[flId] || "diesel";
+
+/* Forklift tipine göre doğru listeyi seç */
+const getListForType = (lists, maintType, fuelType) => {
+    const elc = isElectric(fuelType);
+    switch(maintType) {
+        case 'm250': return elc ? lists.em250 : lists.m250;
+        case 'm500': return elc ? lists.em500 : lists.m500;
+        case 'm2000': return elc ? lists.em2000 : lists.m2000;
+        case 'weekly': return elc ? lists.eweekly : lists.weekly;
+        default: return [];
+    }
 };
 
 /* --- BİLEŞENLER --- */
+const FuelBadge = ({fuelType}) => {
+    const f = gf(fuelType);
+    return <span className={`fuel-badge ${fuelType}`}>{f.e} {f.l}</span>;
+};
+
 const ChkList=memo(function ChkList({items,chkRef}){
   const [checks,setChecks]=useState({});
   useEffect(()=>{chkRef.current=checks;},[checks]);
@@ -174,7 +218,7 @@ const FaultForm=({sel,onSubmit})=>{
     </div></div>);
 };
 
-/* LİSTE DÜZENLEME MODALI */
+/* LİSTE DÜZENLEME MODALI - ELEKTRİKLİ LİSTELER EKLENDİ */
 const ListEditor = ({ onClose, onSave }) => {
     const [lists, setLists] = useState(getSavedLists());
     const [activeTab, setActiveTab] = useState("m250");
@@ -184,24 +228,81 @@ const ListEditor = ({ onClose, onSave }) => {
     const del = (idx) => { setLists({...lists, [activeTab]: currentList.filter((_,i)=>i!==idx)}); };
     const save = () => { localStorage.setItem("opus_lists", JSON.stringify(lists)); onSave(lists); onClose(); };
 
+    const tabDefs = [
+        {k:'m250', l:'250h', icon:'⛽'},
+        {k:'m500', l:'500h', icon:'⛽'},
+        {k:'m2000', l:'2000h', icon:'⛽'},
+        {k:'weekly', l:'Aylık', icon:'⛽'},
+        {k:'em250', l:'250h', icon:'⚡'},
+        {k:'em500', l:'500h', icon:'⚡'},
+        {k:'em2000', l:'2000h', icon:'⚡'},
+        {k:'eweekly', l:'Aylık', icon:'⚡'},
+    ];
+
     return (<div className="overlay" onClick={onClose}><div className="card mbody" onClick={e=>e.stopPropagation()}>
-        <h3>Listeleri Düzenle</h3>
-        <div className="tabs" style={{margin:'10px 0'}}>
-            <div className={`tab ${activeTab==='weekly'?'active':''}`} onClick={()=>setActiveTab('weekly')}>Aylık</div>
-            <div className={`tab ${activeTab==='m250'?'active':''}`} onClick={()=>setActiveTab('m250')}>250 Saat</div>
-            <div className={`tab ${activeTab==='m500'?'active':''}`} onClick={()=>setActiveTab('m500')}>500 Saat</div>
-            <div className={`tab ${activeTab==='m2000'?'active':''}`} onClick={()=>setActiveTab('m2000')}>2000 Saat</div>
+        <h3 style={{marginBottom:6}}>📝 Kontrol Listelerini Düzenle</h3>
+        
+        {/* Standart Listeler */}
+        <div style={{fontSize:11, color:'var(--mute)', fontWeight:700, marginTop:12, marginBottom:4, letterSpacing:1}}>⛽ STANDART (Dizel/Benzin/LPG/Hibrit)</div>
+        <div className="tabs" style={{marginBottom:6}}>
+            {tabDefs.filter(t=>!t.k.startsWith('e')).map(t=>(
+                <div key={t.k} className={`tab ${activeTab===t.k?'active':''}`} onClick={()=>setActiveTab(t.k)}>{t.l}</div>
+            ))}
         </div>
+
+        {/* Elektrikli Listeler */}
+        <div style={{fontSize:11, color:'#c084fc', fontWeight:700, marginTop:8, marginBottom:4, letterSpacing:1}}>⚡ ELEKTRİKLİ</div>
+        <div className="tabs" style={{marginBottom:10}}>
+            {tabDefs.filter(t=>t.k.startsWith('e')).map(t=>(
+                <div key={t.k} className={`tab ${activeTab===t.k?'active':''}`} style={activeTab===t.k?{background:'#a855f7',color:'#fff'}:{}} onClick={()=>setActiveTab(t.k)}>{t.l}</div>
+            ))}
+        </div>
+
+        {/* Aktif sekme bilgisi */}
+        <div style={{fontSize:12, fontWeight:700, color: activeTab.startsWith('e') ? '#c084fc' : 'var(--amber)', marginBottom:8, display:'flex', alignItems:'center', gap:6}}>
+            <span>{activeTab.startsWith('e') ? '⚡' : '⛽'}</span>
+            <span>{activeTab.startsWith('e') ? 'Elektrikli' : 'Standart'} — {activeTab.replace('e','').replace('weekly','Aylık').replace('m','').replace('250','250 Saat').replace('500','500 Saat').replace('2000','2000 Saat')}</span>
+            <span style={{marginLeft:'auto', fontSize:11, color:'var(--dim)'}}>{currentList.length} madde</span>
+        </div>
+
         <div style={{display:'flex', gap:5, marginBottom:10}}>
-            <input className="inp" value={newItem} onChange={e=>setNewItem(e.target.value)} placeholder="Yeni madde..." />
+            <input className="inp" value={newItem} onChange={e=>setNewItem(e.target.value)} placeholder="Yeni madde..." onKeyDown={e=>{if(e.key==='Enter')add()}} />
             <button className="btn btn-amber" onClick={add}>+</button>
         </div>
-        <div style={{maxHeight:300, overflowY:'auto'}}>
-            {currentList.map((it,i)=>(<div key={i} style={{display:'flex', justifyContent:'space-between', padding:8, borderBottom:'1px solid #333'}}><span>{it}</span><button style={{color:'red', background:'none', border:'none'}} onClick={()=>del(i)}>🗑</button></div>))}
+        <div style={{maxHeight:250, overflowY:'auto'}}>
+            {currentList.map((it,i)=>(<div key={i} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:8, borderBottom:'1px solid #333'}}><span style={{fontSize:13}}>{it}</span><button style={{color:'red', background:'none', border:'none', cursor:'pointer', fontSize:14}} onClick={()=>del(i)}>🗑</button></div>))}
+            {currentList.length===0 && <div style={{padding:20, textAlign:'center', color:'var(--dark)', fontSize:13}}>Liste boş. Yukarıdan madde ekleyin.</div>}
         </div>
-        <button className="btn btn-green" style={{width:'100%', marginTop:10}} onClick={save}>KAYDET VE ÇIK</button>
+        <button className="btn btn-green" style={{width:'100%', marginTop:10, justifyContent:'center'}} onClick={save}>💾 KAYDET VE ÇIK</button>
     </div></div>);
 }
+
+/* YAKIT TİPİ DEĞİŞTİRME MODALI */
+const FuelTypeModal = ({forklift, onClose, onSave}) => {
+    const [selected, setSelected] = useState(getFuelType(forklift.id));
+    const save = () => { saveFuelType(forklift.id, selected); onSave(); onClose(); };
+    return (<div className="overlay" onClick={onClose}><div className="card mbody" style={{maxWidth:400}} onClick={e=>e.stopPropagation()}>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14}}>
+            <h3 style={{fontSize:16, fontWeight:700}}>Yakıt Tipi Değiştir</h3>
+            <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+        </div>
+        <div style={{fontSize:13, color:'var(--dim)', marginBottom:14}}><b style={{color:'var(--text)'}}>{forklift.name}</b> için yakıt tipini seçin</div>
+        <div style={{display:'flex', flexDirection:'column', gap:6}}>
+            {FUELS.map(f=>(
+                <div key={f.v} onClick={()=>setSelected(f.v)} 
+                    style={{display:'flex', alignItems:'center', gap:10, padding:'12px 14px', borderRadius:10, cursor:'pointer', border:`2px solid ${selected===f.v?(f.v==='electric'?'#a855f7':'var(--amber)'):'var(--border)'}`, background:selected===f.v?(f.v==='electric'?'#a855f710':'#f59e0b08'):'var(--inp)', transition:'all .2s'}}>
+                    <span style={{fontSize:20}}>{f.e}</span>
+                    <span style={{fontWeight:700, fontSize:14, color:selected===f.v?'var(--text)':'var(--dim)'}}>{f.l}</span>
+                    {selected===f.v && <span style={{marginLeft:'auto', color:f.v==='electric'?'#a855f7':'var(--amber)', fontWeight:800}}>✓</span>}
+                </div>
+            ))}
+        </div>
+        <div style={{marginTop:14, padding:10, borderRadius:8, background:'#f59e0b10', border:'1px solid #f59e0b20', fontSize:12, color:'var(--amber)'}}>
+            ⚠ Yakıt tipi değiştirildiğinde, bakım formlarındaki kontrol listesi otomatik olarak ilgili tipe göre değişecektir.
+        </div>
+        <button className="btn btn-green" style={{width:'100%', marginTop:12, justifyContent:'center'}} onClick={save}>💾 Kaydet</button>
+    </div></div>);
+};
 
 /* ANA UYGULAMA */
 function App(){
@@ -222,8 +323,10 @@ function App(){
   const [loading, setLoading]=useState(false);
   const [deletedIDs, setDeletedIDs] = useState(() => JSON.parse(localStorage.getItem('deleted_fl_ids') || "[]"));
   const [selFL, setSelFL] = useState(null);
+  const [fuelModal, setFuelModal] = useState(null);
+  const [fuelRefresh, setFuelRefresh] = useState(0); // Yakıt tipi değişince UI'ı tetiklemek için
 
-  const flRefs={name:useRef(),brand:useRef(),model:useRef(),hours:useRef()};
+  const flRefs={name:useRef(),brand:useRef(),model:useRef(),hours:useRef(),fuel:useRef()};
   const rpRefs={by:useRef(),hours:useRef(),desc:useRef(),parts:useRef(),date:useRef()};
 
   const fetchData = () => {
@@ -241,7 +344,6 @@ function App(){
     const newData = { forklifts:[], faults:[], m250:[], m500:[], m2000:[], weekly:[] };
     const flMap = {};
 
-    // ONARIMLARI ÖNCEDEN AYIKLA (Arıza kapatma için)
     const repairs = rawData.filter(r => r.type === 'repair');
 
     rawData.forEach(row => {
@@ -250,7 +352,8 @@ function App(){
         flMap[row.flId] = { 
             id: row.flId, name: row.flName, brand: row.person, 
             model: row.note, hours: Number(row.hours), 
-            status: 'active' 
+            status: 'active',
+            fuel: getFuelType(row.flId) // LocalStorage'dan yakıt tipini al
         };
       }
     });
@@ -270,15 +373,13 @@ function App(){
           checksArr: checksArr
       };
 
-      if(row.type === 'm250') newData.m250.push({...baseRec, tech: row.person, tot: lists.m250.length});
-      if(row.type === 'm500') newData.m500.push({...baseRec, tech: row.person, tot: lists.m500.length});
-      if(row.type === 'm2000') newData.m2000.push({...baseRec, tech: row.person, tot: lists.m2000.length});
-      if(row.type === 'weekly') newData.weekly.push({...baseRec, tech: row.person, tot: lists.weekly.length});
+      if(row.type === 'm250') newData.m250.push({...baseRec, tech: row.person, tot: getListForType(lists, 'm250', getFuelType(row.flId)).length});
+      if(row.type === 'm500') newData.m500.push({...baseRec, tech: row.person, tot: getListForType(lists, 'm500', getFuelType(row.flId)).length});
+      if(row.type === 'm2000') newData.m2000.push({...baseRec, tech: row.person, tot: getListForType(lists, 'm2000', getFuelType(row.flId)).length});
+      if(row.type === 'weekly') newData.weekly.push({...baseRec, tech: row.person, tot: getListForType(lists, 'weekly', getFuelType(row.flId)).length});
       if(row.type === 'fault') {
-          // ARIZA DURUMUNU KONTROL ET
           const isRepaired = repairs.some(rep => rep.flId === row.flId && new Date(rep.timestamp) > new Date(row.timestamp));
           const status = isRepaired ? 'closed' : 'open';
-
           newData.faults.push({...baseRec, desc: row.note, by: row.person, st: status, od: row.timestamp, prio:'high'});
           if(status === 'open' && flMap[row.flId]) flMap[row.flId].status = 'fault';
       }
@@ -303,7 +404,9 @@ function App(){
     
     let chkStr = "";
     if(payload.chk) {
-        const listArr = type==='m250'?lists.m250:type==='m500'?lists.m500:type==='m2000'?lists.m2000:lists.weekly;
+        // Doğru listeyi seç: forklift tipine göre
+        const fuelType = sel ? getFuelType(sel.id) : "diesel";
+        const listArr = getListForType(lists, type, fuelType);
         chkStr = Object.keys(payload.chk).filter(k=>payload.chk[k]).map(k=>listArr[k]).join(", ");
     }
     d.append("checks", chkStr);
@@ -335,6 +438,11 @@ function App(){
   const showToast=m=>{setToast(m);setTimeout(()=>setToast(null),2e3);};
   
   const gS=useCallback(f=>{
+    const fuelType = getFuelType(f.id);
+    const m250List = getListForType(lists, 'm250', fuelType);
+    const m500List = getListForType(lists, 'm500', fuelType);
+    const m2000List = getListForType(lists, 'm2000', fuelType);
+
     const m2=data.m250.filter(m=>m.fid===f.id).sort((a,b)=>b.h-a.h);
     const m5=data.m500.filter(m=>m.fid===f.id).sort((a,b)=>b.h-a.h);
     const m20=data.m2000.filter(m=>m.fid===f.id).sort((a,b)=>b.h-a.h);
@@ -345,7 +453,7 @@ function App(){
     const n2=l2h+250,n5=l5h+500,n20=l20h+2000,r2=n2-f.hours,r5=n5-f.hours,r20=n20-f.hours;
     const dw=ws[0]?Math.floor((Date.now()-new Date(ws[0].dt).getTime())/864e5):999;
     return{l2:m2[0],l5:m5[0],l20:m20[0],lw:ws[0],l2h,l5h,l20h,n2,n5,n20,r2,r5,r20,o2:r2<=0,o5:r5<=0,o20:r20<=0,w2:r2>0&&r2<=30,w5:r5>0&&r5<=50,w20:r20>0&&r20<=200,dw,ow:dw>30,opn,allF:fts,inF:opn.length>0||f.status==="fault"};
-  },[data]);
+  },[data,lists,fuelRefresh]);
 
   const deleteForklift = (id) => {
       const newDel = [...deletedIDs, id];
@@ -357,8 +465,12 @@ function App(){
 
   const addFL=()=>{
     const name=flRefs.name.current?.value?.trim();if(!name)return alert("Ad zorunlu.");
+    const flId = "FL-"+uid();
+    const fuelType = flRefs.fuel.current?.value || "diesel";
+    // Yakıt tipini localStorage'a kaydet
+    saveFuelType(flId, fuelType);
     sendData('forklift_register', {
-        flId: "FL-"+uid(), flName: name,
+        flId: flId, flName: name,
         person: flRefs.brand.current.value.trim(), 
         hours: parseFloat(flRefs.hours.current.value)||0,
         note: flRefs.model.current.value.trim() 
@@ -373,7 +485,6 @@ function App(){
   const doCloseFault=()=>{
     const by=rpRefs.by.current?.value?.trim(); if(!by)return alert("İsim gir");
     const date = rpRefs.date.current.value;
-    // DÜZELTME: flId eklendi, böylece onarım doğru forklifte işlenir
     sendData('repair', {flId: repTgt.fid, person:by, hours: rpRefs.hours.current?.value, note: rpRefs.desc.current?.value, date});
   };
 
@@ -391,14 +502,16 @@ function App(){
   };
 
   const MaintDetail=({type,record,onClose})=>{
-    const items=type==="m250"?lists.m250:type==="m500"?lists.m500:type==="m2000"?lists.m2000:lists.weekly;
+    // Detay modalında doğru listeyi göster
+    const fuelType = getFuelType(record.fid);
+    const items = getListForType(lists, type, fuelType);
     const color=type==="m250"?"var(--amber)":type==="m500"?"var(--blue)":type==="m2000"?"#a855f7":"var(--green)";
     const doneItems = record.checksArr || [];
     return(<div className="overlay" onClick={onClose}><div className="card mbody" style={{border:`1px solid ${color}40`}} onClick={e=>e.stopPropagation()}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
     <h3 style={{fontSize:16,fontWeight:700,color}}>{type.toUpperCase()} DETAYI</h3><button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button></div>
     <div style={{marginBottom:12}}>
-    <div className="dr"><span className="dl">Forklift</span><span className="dv" style={{fontWeight:700}}>{record.fn}</span></div>
+    <div className="dr"><span className="dl">Forklift</span><span className="dv" style={{fontWeight:700}}>{record.fn} <FuelBadge fuelType={fuelType}/></span></div>
     <div className="dr"><span className="dl">Personel</span><span className="dv">{record.tech||"—"}</span></div>
     <div className="dr"><span className="dl">Saat</span><span className="dv mono">{record.h}h</span></div>
     <div className="dr"><span className="dl">Tarih</span><span className="dv">{fd(record.dt)}</span></div>
@@ -406,14 +519,13 @@ function App(){
     </div>
     <div style={{fontSize:12,color:"var(--mute)",fontWeight:600,marginBottom:8}}>YAPILAN İŞLER ({doneItems.length}/{items.length})</div>
     <div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:300,overflowY:"auto"}}>
-    {/* DÜZELTME: Sadece seçili olanları filtreleyip gösteriyoruz */}
     {items.filter(item => doneItems.includes(item)).map((item,i)=>{
     return(<div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"#22c55e08",borderRadius:6,border:"1px solid #22c55e20"}}><span style={{fontSize:14}}>✅</span><span style={{fontSize:12,color:"var(--text)"}}>{item}</span></div>);})}
     </div></div></div>);
   };
 
   const DateFilterBar = () => (
-      <div style={{display:'flex', gap:10, marginBottom:10, alignItems:'center', background:'var(--inp)', padding:8, borderRadius:8}}>
+      <div style={{display:'flex', gap:10, marginBottom:10, alignItems:'center', background:'var(--inp)', padding:8, borderRadius:8, flexWrap:'wrap'}}>
         <div style={{fontSize:12, fontWeight:700, color:'var(--dim)'}}>TARİH FİLTRESİ:</div>
         <input type="date" className="inp" style={{padding:5, width:'auto'}} onChange={e=>setDateFilt({...dateFilt, start:e.target.value})} />
         <span style={{color:'var(--dim)'}}>-</span>
@@ -437,7 +549,9 @@ function App(){
         <span style={{fontSize:11, color:'var(--mute)', fontWeight:700}}>FORKLİFT:</span>
         <div className={`fl-filter-chip${selFL===null?' active':''}`} onClick={()=>setSelFL(null)}>Tümü</div>
         {data.forklifts.map(f=>(
-            <div key={f.id} className={`fl-filter-chip${selFL===f.id?' active':''}`} onClick={()=>setSelFL(selFL===f.id?null:f.id)}>{f.name}</div>
+            <div key={f.id} className={`fl-filter-chip${selFL===f.id?' active':''}`} onClick={()=>setSelFL(selFL===f.id?null:f.id)}>
+                {isElectric(getFuelType(f.id))?'⚡':'⛽'} {f.name}
+            </div>
         ))}
       </div>
   );
@@ -472,10 +586,10 @@ function App(){
       {sub==="overview"&&(()=>{
         const flList = selFL ? data.forklifts.filter(f=>f.id===selFL) : data.forklifts;
         if(!flList.length) return <div className="card" style={{textAlign:"center",padding:40,color:"var(--dark)"}}>Henüz forklift yok. Ayarlardan ekleyin.</div>;
-        return flList.map(f=>{const s=gS(f);return(
+        return flList.map(f=>{const s=gS(f);const fuelType=getFuelType(f.id);return(
         <div key={f.id} className="card" style={{marginBottom:12,borderColor:s.inF?"#ef444440":s.o2||s.o5||s.o20?"#f59e0b25":undefined}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12}}>
-            <div><div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}><h3 style={{fontSize:17,fontWeight:800}}>{f.name}</h3><span className="mono" style={{fontSize:11,color:"var(--mute)"}}>{f.id}</span><Badge f={f}/></div><div style={{fontSize:12,color:"var(--dim)",marginTop:2}}>{[f.brand,f.model].filter(Boolean).join(" • ")}</div></div>
+            <div><div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}><h3 style={{fontSize:17,fontWeight:800}}>{f.name}</h3><FuelBadge fuelType={fuelType}/><span className="mono" style={{fontSize:11,color:"var(--mute)"}}>{f.id}</span><Badge f={f}/></div><div style={{fontSize:12,color:"var(--dim)",marginTop:2}}>{[f.brand,f.model].filter(Boolean).join(" • ")}</div></div>
             <div style={{display:"flex",alignItems:"center",gap:8}}><div className="mono" style={{fontSize:22,fontWeight:800,color:"var(--amber)"}}>{f.hours}h</div></div>
           </div>
           <div className="g-auto" style={{marginTop:14}}>
@@ -500,10 +614,13 @@ function App(){
             rs = filterByDate(rs);
             if(!rs.length)return<div className="card" style={{textAlign:"center",padding:24,color:"var(--dark)",marginBottom:16}}>Kayıt yok</div>;
             return rs.map(r=>{
-                const type=r.tot===lists.m2000.length?"m2000":r.tot===lists.m500.length?"m500":"m250";
+                const fuelType = getFuelType(r.fid);
+                const m2000Len = getListForType(lists, 'm2000', fuelType).length;
+                const m500Len = getListForType(lists, 'm500', fuelType).length;
+                const type=r.tot===m2000Len?"m2000":r.tot===m500Len?"m500":"m250";
                 const color=type==="m2000"?"#a855f7":type==="m500"?"var(--blue)":"var(--amber)";
                 const colorBg=type==="m2000"?"#a855f720":type==="m500"?"#3b82f620":"#f59e0b20";
-                return<div key={r.id} className="card" style={{marginBottom:6,borderLeft:`3px solid ${color}`,cursor:"pointer"}} onClick={()=>setDetailModal({type,record:r})}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap"}}><div><span style={{fontWeight:700}}>{r.fn}</span><span className="mono" style={{color:"var(--mute)",fontSize:12,marginLeft:8}}>@ {r.h}h</span></div><span className="badge" style={{background:colorBg,color}}>{r.done}/{r.tot} — detay →</span></div><div style={{fontSize:11,color:"var(--mute)",marginTop:3}}>Teknisyen: <b style={{color:"var(--dim)"}}>{r.tech}</b> • {fd(r.dt)}</div></div>;
+                return<div key={r.id} className="card" style={{marginBottom:6,borderLeft:`3px solid ${color}`,cursor:"pointer"}} onClick={()=>setDetailModal({type,record:r})}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap"}}><div><span style={{fontWeight:700}}>{r.fn}</span>{isElectric(fuelType)&&<span style={{marginLeft:5,fontSize:10}}>⚡</span>}<span className="mono" style={{color:"var(--mute)",fontSize:12,marginLeft:8}}>@ {r.h}h</span></div><span className="badge" style={{background:colorBg,color}}>{r.done}/{r.tot} — detay →</span></div><div style={{fontSize:11,color:"var(--mute)",marginTop:3}}>Teknisyen: <b style={{color:"var(--dim)"}}>{r.tech}</b> • {fd(r.dt)}</div></div>;
             });
         })()}
       </div>}
@@ -512,29 +629,53 @@ function App(){
           let ws=data.weekly.filter(w=>selFL?w.fid===selFL:true).sort((a,b)=>new Date(b.dt)-new Date(a.dt));
           ws = filterByDate(ws);
           if(!ws.length)return<div className="card" style={{textAlign:"center",padding:40,color:"var(--dark)"}}>Kayıt yok</div>;
-          return ws.map(w=><div key={w.id} className="card" style={{marginBottom:6,borderLeft:"3px solid var(--green)",cursor:"pointer"}} onClick={()=>setDetailModal({type:"weekly",record:w})}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap"}}><div><span style={{fontWeight:700}}>{w.fn}</span><span className="mono" style={{color:"var(--mute)",fontSize:12,marginLeft:8}}>{w.h}h</span></div><span className="badge" style={{background:"#22c55e20",color:"#4ade80"}}>{w.done}/{w.tot} — detay →</span></div><div style={{fontSize:11,color:"var(--mute)",marginTop:3}}>Operatör: <b style={{color:"var(--dim)"}}>{w.tech}</b> • {fd(w.dt)}</div></div>);
+          return ws.map(w=>{
+              const fuelType = getFuelType(w.fid);
+              return <div key={w.id} className="card" style={{marginBottom:6,borderLeft:"3px solid var(--green)",cursor:"pointer"}} onClick={()=>setDetailModal({type:"weekly",record:w})}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap"}}><div><span style={{fontWeight:700}}>{w.fn}</span>{isElectric(fuelType)&&<span style={{marginLeft:5,fontSize:10}}>⚡</span>}<span className="mono" style={{color:"var(--mute)",fontSize:12,marginLeft:8}}>{w.h}h</span></div><span className="badge" style={{background:"#22c55e20",color:"#4ade80"}}>{w.done}/{w.tot} — detay →</span></div><div style={{fontSize:11,color:"var(--mute)",marginTop:3}}>Operatör: <b style={{color:"var(--dim)"}}>{w.tech}</b> • {fd(w.dt)}</div></div>;
+          });
       })()}
 
-      {sub==="fleet"&&(!data.forklifts.length?<div className="card" style={{textAlign:"center",padding:40,color:"var(--dark)"}}>Forklift yok.</div>:data.forklifts.map(f=><div key={f.id} className="card" style={{marginBottom:12}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><h3 style={{fontSize:16,fontWeight:800}}>{f.name} <span className="mono" style={{fontSize:11,color:"var(--mute)"}}>{f.id}</span></h3><div style={{display:"flex",gap:6}}><button className="btn btn-dng btn-sm" onClick={()=>setConfirmDel({type:"forklift",id:f.id,msg:`"${f.name}" sistemden gizlenecek. Devam edilsin mi?`})}>🗑 Sil</button></div></div><div className="g-auto"><div><div className="lbl">MARKA</div><div>{f.brand||"—"}</div></div><div><div className="lbl">MODEL</div><div>{f.model||"—"}</div></div><div><div className="lbl">SAAT</div><div className="mono" style={{fontWeight:700,color:"var(--amber)"}}>{f.hours}h</div></div></div></div>))}
+      {sub==="fleet"&&(!data.forklifts.length?<div className="card" style={{textAlign:"center",padding:40,color:"var(--dark)"}}>Forklift yok.</div>:data.forklifts.map(f=>{
+          const fuelType = getFuelType(f.id);
+          return <div key={f.id} className="card" style={{marginBottom:12}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <h3 style={{fontSize:16,fontWeight:800}}>{f.name} <FuelBadge fuelType={fuelType}/> <span className="mono" style={{fontSize:11,color:"var(--mute)"}}>{f.id}</span></h3>
+            <div style={{display:"flex",gap:6}}>
+                <button className="btn btn-ghost btn-sm" onClick={()=>setFuelModal(f)}>⛽ Yakıt Tipi</button>
+                <button className="btn btn-dng btn-sm" onClick={()=>setConfirmDel({type:"forklift",id:f.id,msg:`"${f.name}" sistemden gizlenecek. Devam edilsin mi?`})}>🗑 Sil</button>
+            </div>
+          </div>
+          <div className="g-auto">
+            <div><div className="lbl">MARKA</div><div>{f.brand||"—"}</div></div>
+            <div><div className="lbl">MODEL</div><div>{f.model||"—"}</div></div>
+            <div><div className="lbl">SAAT</div><div className="mono" style={{fontWeight:700,color:"var(--amber)"}}>{f.hours}h</div></div>
+            <div><div className="lbl">YAKIT TİPİ</div><div><FuelBadge fuelType={fuelType}/></div></div>
+          </div>
+        </div>;
+      }))}
     </div>
   );
 
-  const QRPage=()=>(<div style={{padding:24,maxWidth:1100,margin:"0 auto"}}><div style={{display:"flex",alignItems:"center",gap:12,marginBottom:24}}><button className="btn btn-ghost" style={{padding:"5px 8px"}} onClick={()=>setPg("dash")}>←</button><div><h2 style={{fontSize:22,fontWeight:800}}>QR Kod / Barkod</h2><p style={{fontSize:13,color:"var(--dim)"}}>Yazdırıp forkliftlere yapıştırın</p></div></div>{!data.forklifts.length&&<div className="card" style={{textAlign:"center",padding:40,color:"var(--dark)"}}>Forklift yok.</div>}<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:16}}>{data.forklifts.map(f=><div key={f.id} className="card" style={{textAlign:"center",padding:20}}><QRCode data={`forklift://${f.id}`} sz={130}/><div style={{fontWeight:800,fontSize:16,marginTop:10}}>{f.name}</div><div style={{color:"var(--dim)",fontSize:12}}>{f.brand} {f.model}</div><div className="mono" style={{fontSize:12,color:"var(--amber)",marginTop:3}}>{f.id}</div><button className="btn btn-ghost btn-sm" style={{width:"100%",justifyContent:"center",marginTop:10}} onClick={()=>{setSel(f);setPg("mob");setTab("status")}}>Mobil Aç</button></div>)}</div></div>);
+  const QRPage=()=>(<div style={{padding:24,maxWidth:1100,margin:"0 auto"}}><div style={{display:"flex",alignItems:"center",gap:12,marginBottom:24}}><button className="btn btn-ghost" style={{padding:"5px 8px"}} onClick={()=>setPg("dash")}>←</button><div><h2 style={{fontSize:22,fontWeight:800}}>QR Kod / Barkod</h2><p style={{fontSize:13,color:"var(--dim)"}}>Yazdırıp forkliftlere yapıştırın</p></div></div>{!data.forklifts.length&&<div className="card" style={{textAlign:"center",padding:40,color:"var(--dark)"}}>Forklift yok.</div>}<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:16}}>{data.forklifts.map(f=>{const fuelType=getFuelType(f.id);return <div key={f.id} className="card" style={{textAlign:"center",padding:20}}><QRCode data={`forklift://${f.id}`} sz={130}/><div style={{fontWeight:800,fontSize:16,marginTop:10}}>{f.name}</div><div style={{color:"var(--dim)",fontSize:12}}>{f.brand} {f.model}</div><div style={{marginTop:4}}><FuelBadge fuelType={fuelType}/></div><div className="mono" style={{fontSize:12,color:"var(--amber)",marginTop:3}}>{f.id}</div><button className="btn btn-ghost btn-sm" style={{width:"100%",justifyContent:"center",marginTop:10}} onClick={()=>{setSel(f);setPg("mob");setTab("status")}}>Mobil Aç</button></div>;})}</div></div>);
 
   const Mobile=()=>{
     if(!sel)return(
     <div style={{maxWidth:420,margin:"0 auto",padding:16}}>
     <div style={{textAlign:"center",marginBottom:16}}><div style={{fontSize:12,color:"var(--amber)",fontWeight:700,letterSpacing:2}}>FORKLİFT BAKIM</div><h2 style={{fontSize:20,fontWeight:800,marginTop:4}}>Forklift Seçin</h2></div>
     {!data.forklifts.length&&<div className="card" style={{textAlign:"center",padding:30,color:"var(--dark)"}}>Henüz forklift yok.</div>}
-    {data.forklifts.map(f=><div key={f.id} className="card" style={{marginBottom:8,cursor:"pointer",borderColor:gS(f).inF?"#ef444440":undefined}} onClick={()=>{setSel(f);setTab("status")}}>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontWeight:700}}>{f.name} <span style={{fontSize:11,color:"var(--mute)"}}>{f.id}</span></div><div style={{fontSize:12,color:"var(--dim)"}}>{[f.brand,f.model].filter(Boolean).join(" • ")}</div></div><div style={{textAlign:"right"}}><div className="mono" style={{fontSize:16,fontWeight:700,color:"var(--amber)"}}>{f.hours}h</div><Badge f={f}/></div></div></div>)}
+    {data.forklifts.map(f=>{const fuelType=getFuelType(f.id);return <div key={f.id} className="card" style={{marginBottom:8,cursor:"pointer",borderColor:gS(f).inF?"#ef444440":undefined}} onClick={()=>{setSel(f);setTab("status")}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontWeight:700,display:'flex',alignItems:'center',gap:6}}>{f.name} <FuelBadge fuelType={fuelType}/> <span style={{fontSize:11,color:"var(--mute)"}}>{f.id}</span></div><div style={{fontSize:12,color:"var(--dim)"}}>{[f.brand,f.model].filter(Boolean).join(" • ")}</div></div><div style={{textAlign:"right"}}><div className="mono" style={{fontSize:16,fontWeight:700,color:"var(--amber)"}}>{f.hours}h</div><Badge f={f}/></div></div></div>;})}
     <button className="btn btn-ghost" style={{width:"100%",justifyContent:"center",marginTop:10}} onClick={()=>{setPg("dash");setSel(null)}}>← Ana Panel</button>
     </div>
     );
+
     const st=gS(sel);
+    const fuelType = getFuelType(sel.id);
+    const selIsElectric = isElectric(fuelType);
+
     return(
     <div style={{maxWidth:420,margin:"0 auto",padding:16}}>
-    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><button className="btn btn-ghost" style={{padding:"5px 8px"}} onClick={()=>setSel(null)}>←</button><div style={{flex:1}}><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontWeight:800,fontSize:16}}>{sel.name}</span><Badge f={sel}/></div><div style={{fontSize:11,color:"var(--dim)"}}>{[sel.brand,sel.model].filter(Boolean).join(" • ")} • {sel.hours}h</div></div></div>
+    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><button className="btn btn-ghost" style={{padding:"5px 8px"}} onClick={()=>setSel(null)}>←</button><div style={{flex:1}}><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontWeight:800,fontSize:16}}>{sel.name}</span><FuelBadge fuelType={fuelType}/><Badge f={sel}/></div><div style={{fontSize:11,color:"var(--dim)"}}>{[sel.brand,sel.model].filter(Boolean).join(" • ")} • {sel.hours}h</div></div></div>
     <div className="tabs" style={{marginBottom:12}}>
     {[{k:"status",l:"Durum"},{k:"fault",l:"Arıza"},{k:"m250",l:"250h"},{k:"m500",l:"500h"},{k:"m2000",l:"2000h"},{k:"wk",l:"Aylık"}].map(t=>
     <div key={t.k} className={`tab${tab===t.k?" active":""}`} onClick={()=>setTab(t.k)}>{t.l}</div>)}
@@ -566,10 +707,10 @@ function App(){
         </div>}
     </div>}
     {tab==="fault"&&<FaultForm sel={sel} onSubmit={handleFaultSubmit}/>}
-    {tab==="m250"&&<FormTemplate title="250 SAAT BAKIM" color="var(--amber)" items={lists.m250} onSubmit={handle250} sel={sel}/>}
-    {tab==="m500"&&<FormTemplate title="500 SAAT BAKIM" color="var(--blue)" items={lists.m500} onSubmit={handle500} sel={sel}/>}
-    {tab==="m2000"&&<FormTemplate title="2000 SAAT BAKIM" color="#a855f7" items={lists.m2000} onSubmit={handle2000} sel={sel}/>}
-    {tab==="wk"&&<FormTemplate title="AYLIK KONTROL" color="var(--green)" items={lists.weekly} onSubmit={handleWk} sel={sel}/>}
+    {tab==="m250"&&<FormTemplate title={`250 SAAT BAKIM ${selIsElectric?'⚡':''}`} color="var(--amber)" items={getListForType(lists,'m250',fuelType)} onSubmit={handle250} sel={sel}/>}
+    {tab==="m500"&&<FormTemplate title={`500 SAAT BAKIM ${selIsElectric?'⚡':''}`} color="var(--blue)" items={getListForType(lists,'m500',fuelType)} onSubmit={handle500} sel={sel}/>}
+    {tab==="m2000"&&<FormTemplate title={`2000 SAAT BAKIM ${selIsElectric?'⚡':''}`} color="#a855f7" items={getListForType(lists,'m2000',fuelType)} onSubmit={handle2000} sel={sel}/>}
+    {tab==="wk"&&<FormTemplate title={`AYLIK KONTROL ${selIsElectric?'⚡':''}`} color="var(--green)" items={getListForType(lists,'weekly',fuelType)} onSubmit={handleWk} sel={sel}/>}
     </div>
     );
   };
@@ -581,7 +722,7 @@ function App(){
             <button className="btn btn-blue" onClick={()=>{setModal('list_edit')}}>📝 Kontrol Listelerini Düzenle</button>
             <button className="btn btn-ghost" onClick={()=>{setModal('add')}}>+ Yeni Forklift Ekle</button>
         </div>
-        <div style={{marginTop:20, fontSize:12, color:'var(--dim)', textAlign:'center'}}>Selectron v4.8 (Opus)</div>
+        <div style={{marginTop:20, fontSize:12, color:'var(--dim)', textAlign:'center'}}>Selectron v5.0 (Opus)</div>
       </div></div>
   );
 
@@ -593,6 +734,13 @@ function App(){
   <div><label className="lbl">Marka</label><input ref={flRefs.brand} className="inp" placeholder="ör: Toyota"/></div>
   <div><label className="lbl">Model</label><input ref={flRefs.model} className="inp" placeholder="ör: 8FG25"/></div>
   <div><label className="lbl">Mevcut Saat</label><input ref={flRefs.hours} className="inp" type="number" placeholder="0"/></div>
+  </div>
+  {/* YAKIT TİPİ SEÇİMİ */}
+  <div style={{marginTop:10}}>
+    <label className="lbl">Yakıt Tipi</label>
+    <select ref={flRefs.fuel} className="inp" defaultValue="diesel">
+        {FUELS.map(f=><option key={f.v} value={f.v}>{f.e} {f.l}</option>)}
+    </select>
   </div>
   <button className="btn btn-amber" style={{width:"100%",justifyContent:"center",marginTop:14}} onClick={addFL}>+ Forklift Ekle</button>
   </div></div>);
@@ -624,6 +772,7 @@ function App(){
   <RepairModal/>
   {detailModal&&<MaintDetail type={detailModal.type} record={detailModal.record} onClose={()=>setDetailModal(null)}/>}
   {confirmDel&&<Confirm msg={confirmDel.msg} onYes={()=>{deleteForklift(confirmDel.id); setConfirmDel(null);}} onNo={()=>setConfirmDel(null)}/>}
+  {fuelModal&&<FuelTypeModal forklift={fuelModal} onClose={()=>setFuelModal(null)} onSave={()=>{setFuelRefresh(p=>p+1); fetchData();}} />}
   </div>);
 }
 
